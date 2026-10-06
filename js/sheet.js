@@ -94,8 +94,9 @@ async function viewSheet(centerId, branchId, month) {
 
   // ---------- Asboblar paneli ----------
   const viewBtns = {
-    table: h('button', { class: 'seg-btn', onclick: () => setView('table') }, 'Jadval'),
-    day: h('button', { class: 'seg-btn', onclick: () => setView('day') }, 'Kunlik'),
+    table: h('button', { class: 'seg-btn', title: 'Oylik jadval', onclick: () => setView('table') }, icon('table', 15), h('span', {}, 'Jadval')),
+    week: h('button', { class: 'seg-btn', title: 'Haftalik hisobot', onclick: () => setView('week') }, icon('calendar', 15), h('span', {}, 'Haftalik')),
+    day: h('button', { class: 'seg-btn', title: 'Bir kunlik shakl', onclick: () => setView('day') }, icon('list', 15), h('span', {}, 'Kunlik')),
   };
 
   const toolbar = h('div', { class: 'sheet-bar' },
@@ -104,14 +105,14 @@ async function viewSheet(centerId, branchId, month) {
       h('p', { class: 'muted small' }, isAll ? `${branches.length} ta filial yig'indisi`
         : [branch.manager, branch.phone].filter(Boolean).join(' · ') || center.name)),
     h('div', { class: 'month-nav' },
-      h('a', { class: 'btn icon ghost', href: `${base}?m=${addMonth(month, -1)}`, title: 'Oldingi oy' }, '‹'),
+      h('a', { class: 'btn icon ghost', href: `${base}?m=${addMonth(month, -1)}`, title: 'Oldingi oy' }, icon('chevronLeft')),
       h('label', { class: 'month-label' }, monthLabel(month),
         h('input', { type: 'month', value: month, onchange: e => e.target.value && (location.hash = `${base}?m=${e.target.value}`) })),
-      h('a', { class: 'btn icon ghost', href: `${base}?m=${addMonth(month, 1)}`, title: 'Keyingi oy' }, '›')),
+      h('a', { class: 'btn icon ghost', href: `${base}?m=${addMonth(month, 1)}`, title: 'Keyingi oy' }, icon('chevronRight'))),
     h('div', { class: 'sheet-tools' },
       status,
-      h('div', { class: 'seg' }, viewBtns.table, viewBtns.day),
-      h('button', { class: 'btn', onclick: exportCSV, title: "Excel uchun CSV yuklab olish" }, 'CSV')));
+      h('div', { class: 'seg' }, viewBtns.table, viewBtns.week, viewBtns.day),
+      h('button', { class: 'btn', onclick: exportCSV, title: "Excel uchun CSV yuklab olish" }, icon('download', 16), h('span', { class: 'btn-text' }, 'CSV'))));
 
   const body = h('div', { class: 'sheet-body' });
   mount(toolbar, body);
@@ -119,14 +120,19 @@ async function viewSheet(centerId, branchId, month) {
   // ---------- Jadval ko'rinishi ----------
   let refs = null; // { cells: Map("day|key" → el), rows: Map(day → [tr,tr]), inputs }
 
-  function renderTable() {
+  function tableHead(firstLabel) {
     const colW = c => (c.type === 'text' ? 150 : 104);
     let html = '<div class="sheet-frame"><div class="sheet-scroll"><table class="sheet"><colgroup><col class="c-date">';
-    html += cols.map(c => `<col style="width:${colW(c)}px">`).join('') + '</colgroup><thead><tr><th class="sticky-col corner">Sana</th>';
+    html += cols.map(c => `<col style="width:${colW(c)}px">`).join('') + `</colgroup><thead><tr><th class="sticky-col corner">${firstLabel}</th>`;
     html += cols.map(c => {
       const hint = c.type === 'formula' ? `= ${c.formula}` : c.base && c.base !== 'self' ? `% ← ${colMap[c.base]?.label || c.base}` : '';
-      return `<th title="${esc(hint)}"><span>${esc(c.label)}</span>${c.type === 'formula' ? '<i class="fx-badge">ƒx</i>' : ''}</th>`;
-    }).join('') + '</tr></thead><tbody>';
+      return `<th title="${esc(hint)}"><span>${esc(c.label)}</span>${c.type === 'formula' ? `<i class="fx-badge">${iconHTML('fx', 13)}</i>` : ''}</th>`;
+    }).join('') + '</tr></thead>';
+    return html;
+  }
+
+  function renderTable() {
+    let html = tableHead('Sana') + '<tbody>';
 
     days.forEach((day, r) => {
       const wd = weekday(day);
@@ -211,6 +217,8 @@ async function viewSheet(centerId, branchId, month) {
       if (!initial) refreshTotals();
     } else if (viewMode === 'day' && day === curDay) {
       paintDay();
+    } else if (viewMode === 'week') {
+      paintWeeks();
     }
   }
 
@@ -320,7 +328,7 @@ async function viewSheet(centerId, branchId, month) {
       const pct = h('span', { class: 'f-pct' });
       dayRefs.pcts.set(c.key, pct);
       fields.append(h('label', { class: `f-row ${c.type}` },
-        h('span', { class: 'f-label' }, c.label, c.type === 'formula' ? h('i', { class: 'fx-badge' }, 'ƒx') : null),
+        h('span', { class: 'f-label' }, c.label, c.type === 'formula' ? h('i', { class: 'fx-badge' }, icon('fx', 13)) : null),
         h('span', { class: 'f-ctl' }, ctl, pct)));
     });
     editable.forEach((inp, i) => {
@@ -333,9 +341,9 @@ async function viewSheet(centerId, branchId, month) {
 
     const card = h('section', { class: 'panel day-card' },
       h('div', { class: 'day-nav' },
-        h('button', { class: 'btn icon ghost', disabled: idx <= 0, onclick: () => { curDay = days[idx - 1]; renderDay(); } }, '‹'),
+        h('button', { class: 'btn icon ghost', disabled: idx <= 0, onclick: () => { curDay = days[idx - 1]; renderDay(); } }, icon('chevronLeft')),
         dateSel,
-        h('button', { class: 'btn icon ghost', disabled: idx >= days.length - 1, onclick: () => { curDay = days[idx + 1]; renderDay(); } }, '›')),
+        h('button', { class: 'btn icon ghost', disabled: idx >= days.length - 1, onclick: () => { curDay = days[idx + 1]; renderDay(); } }, icon('chevronRight'))),
       h('div', { class: 'day-sub' },
         curDay === today ? h('span', { class: 'chip today' }, 'Bugun') : null, offBtn),
       fields);
@@ -378,19 +386,85 @@ async function viewSheet(centerId, branchId, month) {
     }
   }
 
+  // ---------- Haftalik ko'rinish (kunlikdan yig'iladi) ----------
+  const weeks = monthWeeks(days);
+  let weekRefs = null;
+  const short = d => d.slice(8, 10) + '.' + d.slice(5, 7);
+  const weekRange = w => w.days.length > 1 ? `${short(w.days[0])} – ${short(w.days[w.days.length - 1])}` : short(w.days[0]);
+  const workDays = w => w.days.filter(d => !isOff(d)).length;
+  function weekRow(w) {
+    const row = computeRow(cols, aggregateDays(cols, w.days, rawOf));
+    for (const c of cols) if (c.type === 'text') {
+      const n = w.days.filter(d => (rawOf(d)[c.key] ?? '') !== '').length;
+      row.v[c.key] = n ? `${n} ta yozuv` : '';
+    }
+    return row;
+  }
+
+  function renderWeeks() {
+    let html = tableHead('Hafta') + '<tbody>';
+    weeks.forEach((w, i) => {
+      const cur = w.days.includes(today);
+      html += `<tr class="vrow week${cur ? ' today' : ''}"><td class="sticky-col date" rowspan="2">` +
+        `<div class="week-label"><b>${i + 1}-hafta</b><small>${weekRange(w)}</small><small data-wd="${i}"></small></div></td>`;
+      cols.forEach(c => { html += `<td class="${c.type === 'formula' ? 'fx' : 'ro ' + c.type}" data-v="${i}|${c.key}"></td>`; });
+      html += `</tr><tr class="prow week${cur ? ' today' : ''}">`;
+      cols.forEach(c => { html += `<td class="pct" data-p="${i}|${c.key}"></td>`; });
+      html += '</tr>';
+    });
+    html += '</tbody><tfoot><tr class="vrow total"><td class="sticky-col date"><b>Oy jami</b></td>';
+    cols.forEach(c => { html += `<td data-v="total|${c.key}"></td>`; });
+    html += '</tr><tr class="prow total"><td class="sticky-col date"><small>' + esc(monthLabel(month)) + '</small></td>';
+    cols.forEach(c => { html += `<td class="pct" data-p="total|${c.key}"></td>`; });
+    html += '</tr></tfoot></table></div></div>';
+    html += `<p class="sheet-hint muted small">Haftalik hisobot kunlik ma'lumotlardan avtomatik yig'iladi. ` +
+      `${esc(colMap.students?.label || "O'quvchilar soni")} — hafta oxiridagi qiymat, qolganlari — yig'indi.</p>`;
+    body.innerHTML = html;
+    body.querySelector('.sheet-frame').classList.add('weekly');
+
+    weekRefs = { cells: new Map(), pcts: new Map(), wd: new Map() };
+    body.querySelectorAll('[data-v]').forEach(el => weekRefs.cells.set(el.dataset.v, el));
+    body.querySelectorAll('[data-p]').forEach(el => weekRefs.pcts.set(el.dataset.p, el));
+    body.querySelectorAll('[data-wd]').forEach(el => weekRefs.wd.set(+el.dataset.wd, el));
+    paintWeeks();
+  }
+
+  function paintWeeks() {
+    if (!weekRefs) return;
+    const paintRow = (id, row) => {
+      for (const c of cols) {
+        const el = weekRefs.cells.get(`${id}|${c.key}`);
+        if (el) paintValue(el, c, row.v[c.key]);
+        const p = weekRefs.pcts.get(`${id}|${c.key}`);
+        if (p) paintPct(p, c, row);
+      }
+    };
+    weeks.forEach((w, i) => {
+      paintRow(i, weekRow(w));
+      const wd = weekRefs.wd.get(i);
+      if (wd) wd.textContent = `${workDays(w)} ish kuni`;
+    });
+    const tot = totalsRow();
+    for (const c of cols) if (c.type === 'text') {
+      const n = days.filter(d => (rawOf(d)[c.key] ?? '') !== '').length;
+      tot.v[c.key] = n ? `${n} ta yozuv` : '';
+    }
+    paintRow('total', tot);
+  }
+
   // ---------- Ko'rinishni almashtirish ----------
   function setView(m) {
     viewMode = m;
     try { localStorage.setItem('hisobot_view', m); } catch {}
-    viewBtns.table.classList.toggle('on', m === 'table');
-    viewBtns.day.classList.toggle('on', m === 'day');
-    refs = null; dayRefs = null;
-    if (m === 'table') renderTable(); else renderDay();
+    for (const [k, b] of Object.entries(viewBtns)) b.classList.toggle('on', k === m);
+    refs = null; dayRefs = null; weekRefs = null;
+    if (m === 'table') renderTable(); else if (m === 'week') renderWeeks(); else renderDay();
   }
   setView(viewMode);
 
   function refreshAll() {
     if (viewMode === 'table') { days.forEach(d => refreshDay(d, true)); refreshTotals(); }
+    else if (viewMode === 'week') paintWeeks();
     else paintDay();
   }
 
@@ -402,10 +476,15 @@ async function viewSheet(centerId, branchId, month) {
       lines.push([label, ...cols.map(c => c.type === 'text' ? row.v[c.key] : fmtNum(row.v[c.key]))].map(q).join(';'));
       lines.push(['', ...cols.map(c => (c.type !== 'text' && c.base && row.hasData) ? fmtPct(row.p[c.key]) : '')].map(q).join(';'));
     };
-    days.forEach(d => line(fmtDate(d) + (isOff(d) ? ' (dam)' : ''), computeRow(cols, rawOf(d))));
+    if (viewMode === 'week') {
+      lines[0] = ['Hafta', ...cols.map(c => c.label)].map(q).join(';');
+      weeks.forEach((w, i) => line(`${i + 1}-hafta (${weekRange(w)})`, weekRow(w)));
+    } else {
+      days.forEach(d => line(fmtDate(d) + (isOff(d) ? ' (dam)' : ''), computeRow(cols, rawOf(d))));
+    }
     line('Oy jami', totalsRow());
     const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
-    const a = h('a', { href: URL.createObjectURL(blob), download: `${isAll ? center.name : branch.name} — ${month}.csv` });
+    const a = h('a', { href: URL.createObjectURL(blob), download: `${isAll ? center.name : branch.name} — ${month}${viewMode === 'week' ? ' (haftalik)' : ''}.csv` });
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }

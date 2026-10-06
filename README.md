@@ -21,7 +21,8 @@ HTML + CSS + JS (freymvorksiz) va Supabase. Loginsiz, ochiq tizim. Minimal dizay
 - O'sish hajmi = Shartnoma + Qaytganlar − Ketganlar − Muzlatilganlar (formula)
 - Yakshanbalar avtomatik dam olish kuni (qizil); sanani bosib o'zgartirish mumkin
 - Klaviatura: ↑ ↓ ← →, Enter, Esc; Excel/Sheets'dan bir nechta katakni nusxalab qo'yish
-- Mobil uchun "Kunlik" ko'rinish (bitta kunning shakli)
+- Uch ko'rinish: Jadval (oylik) · Haftalik (kunlikdan avtomatik yig'iladi, Du–Ya) · Kunlik (mobil shakl)
+- Kun / tun rejimi (header'dagi tugma, tanlov eslab qolinadi)
 - Ustunlarni sozlash: qo'shish, nomini o'zgartirish, yashirish, tartib, foiz asosi, formula
 - CSV eksport (Excel ochadi)
 - Supabase realtime: boshqa qurilmadagi o'zgarishlar jonli ko'rinadi
@@ -33,6 +34,7 @@ index.html
 css/style.css
 js/config.js   — Supabase kalitlari
 js/db.js       — Supabase / lokal ma'lumot qatlami
+js/icons.js    — SVG ikonkalar
 js/util.js     — yordamchilar, ustunlar va hisob-kitob
 js/views.js    — header, boshlang'ich sozlash, sozlamalar
 js/sheet.js    — hisobot jadvali va kunlik ko'rinish

@@ -25,6 +25,7 @@ async function route() {
   } catch (e) {
     console.error(e);
     mount(h('section', { class: 'panel empty' },
+      h('div', { class: 'err-ico' }, icon('alert', 28)),
       h('h2', {}, 'Xatolik'),
       h('p', { class: 'muted' }, e.message || String(e)),
       h('a', { class: 'btn primary', href: '#/' }, 'Bosh sahifa')));
@@ -33,14 +34,22 @@ async function route() {
 }
 
 (function init() {
+  document.querySelector('.brand-mark').replaceChildren(icon('logo', 17));
+  document.getElementById('settings-link').prepend(icon('settings', 19));
+  const themeBtn = document.getElementById('theme-toggle');
+  themeBtn.addEventListener('click', toggleTheme);
+  applyTheme(currentTheme());
+
   const pill = document.getElementById('db-mode');
+  pill.replaceChildren(icon(DB.mode === 'supabase' ? 'cloud' : 'hardDrive', 13), h('span', {}));
+  const pillText = pill.lastChild;
   if (DB.mode === 'supabase') {
-    pill.textContent = 'Supabase';
-    pill.className = 'pill on';
+    pillText.textContent = 'Supabase';
+    pill.classList.add('on');
     pill.title = "Ma'lumotlar Supabase bazasida saqlanadi";
   } else {
-    pill.textContent = 'Lokal';
-    pill.className = 'pill local';
+    pillText.textContent = 'Lokal';
+    pill.classList.add('local');
     pill.title = "Supabase ulanmagan — ma'lumotlar faqat shu brauzerda saqlanadi. js/config.js faylini to'ldiring.";
   }
   addEventListener('hashchange', route);

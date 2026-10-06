@@ -30,18 +30,35 @@ function setHeader(center, branches, active) {
   if (!center || !branches?.length) return;
   const m = hashMonth();
   const q = m ? `?m=${m}` : '';
-  const tab = (href, label, on) => h('a', { class: 'tab' + (on ? ' on' : ''), href }, label);
+  const tab = (href, label, on, ico) => h('a', { class: 'tab' + (on ? ' on' : ''), href }, ico ? icon(ico, 16) : null, label);
   tabs.append(
-    tab(`#/c/${center.id}/all${q}`, 'Barchasi', active === 'all'),
+    tab(`#/c/${center.id}/all${q}`, 'Barchasi', active === 'all', 'layers'),
     ...branches.map(b => tab(`#/c/${center.id}/b/${b.id}${q}`, b.name, active === b.id)));
   tabs.querySelector('.tab.on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+}
+
+// ---------- Kun / tun rejimi ----------
+function currentTheme() { return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'; }
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'dark' ? '#111318' : '#ffffff');
+  const btn = document.getElementById('theme-toggle');
+  if (btn) {
+    btn.replaceChildren(icon(t === 'dark' ? 'sun' : 'moon', 19));
+    btn.title = t === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim';
+  }
+}
+function toggleTheme() {
+  const t = currentTheme() === 'dark' ? 'light' : 'dark';
+  LS.set('hisobot_theme', t);
+  applyTheme(t);
 }
 
 function steps(active) {
   const s = ['Markaz', 'Filiallar', 'Hisobot'];
   return h('ol', { class: 'steps' }, s.map((t, i) =>
     h('li', { class: i < active ? 'done' : i === active ? 'active' : '' },
-      h('span', { class: 'dot' }, i < active ? '✓' : i + 1), h('span', {}, t))));
+      h('span', { class: 'dot' }, i < active ? icon('check', 13) : i + 1), h('span', {}, t))));
 }
 
 // =============== Kirish: kerakli sahifaga yo'naltirish ===============
@@ -85,7 +102,7 @@ async function viewOnboardBranches(centerId) {
   let branches = await DB.listBranches(centerId);
 
   const list = h('ul', { class: 'mini-list' });
-  const next = h('a', { class: 'btn primary lg' }, 'Hisobotni boshlash →');
+  const next = h('a', { class: 'btn primary lg' }, 'Hisobotni boshlash', icon('arrowRight', 18));
   const draw = () => {
     list.innerHTML = '';
     branches.forEach(b => list.append(h('li', {},
@@ -93,14 +110,14 @@ async function viewOnboardBranches(centerId) {
       h('button', { class: 'btn icon ghost sm', title: "O'chirish", onclick: async () => {
         await DB.deleteBranch(b.id);
         branches = branches.filter(x => x.id !== b.id); draw();
-      } }, '✕'))));
+      } }, icon('x', 16)))));
     list.hidden = !branches.length;
     next.classList.toggle('disabled', !branches.length);
     next.href = branches.length ? `#/c/${centerId}/b/${branches[0].id}` : 'javascript:void 0';
   };
 
   const name = h('input', { class: 'inp lg', placeholder: 'Masalan: Chilonzor filiali' });
-  const form = h('form', { class: 'row' }, name, h('button', { class: 'btn lg', type: 'submit' }, "Qo'shish"));
+  const form = h('form', { class: 'row' }, name, h('button', { class: 'btn lg', type: 'submit' }, icon('plus'), "Qo'shish"));
   form.addEventListener('submit', async e => {
     e.preventDefault();
     const v = name.value.trim();
@@ -123,10 +140,10 @@ async function viewSettings(centerId, tab = 'branches') {
   LS.set('hisobot_center', centerId);
   setHeader(center, branches, 'settings');
 
-  const TABS = { branches: 'Filiallar', columns: 'Ustunlar', center: 'Markaz' };
+  const TABS = { branches: ['Filiallar', 'mapPin'], columns: ['Ustunlar', 'columns'], center: ['Markaz', 'building'] };
   if (!TABS[tab]) tab = 'branches';
-  const nav = h('nav', { class: 'side-nav' }, Object.entries(TABS).map(([k, t]) =>
-    h('a', { class: 'side-link' + (k === tab ? ' on' : ''), href: `#/c/${centerId}/settings/${k}` }, t)));
+  const nav = h('nav', { class: 'side-nav' }, Object.entries(TABS).map(([k, [t, ico]]) =>
+    h('a', { class: 'side-link' + (k === tab ? ' on' : ''), href: `#/c/${centerId}/settings/${k}` }, icon(ico, 16), h('span', {}, t))));
 
   const content = tab === 'branches' ? settingsBranches(center, branches)
     : tab === 'columns' ? settingsColumns(center)
@@ -167,23 +184,23 @@ function settingsBranches(center, branches) {
   return h('section', { class: 'panel' },
     h('div', { class: 'panel-head' },
       h('h2', {}, 'Filiallar', h('span', { class: 'count' }, branches.length)),
-      h('button', { class: 'btn primary', onclick: add }, "+ Filial qo'shish")),
+      h('button', { class: 'btn primary', onclick: add }, icon('plus', 16), "Filial qo'shish")),
     branches.length ? h('ul', { class: 'rows' }, branches.map((b, i) => h('li', { class: 'row-item' },
       h('div', { class: 'row-main' },
         h('a', { class: 'row-title', href: `#/c/${id}/b/${b.id}` }, b.name),
         h('span', { class: 'muted small' }, [b.manager, b.phone].filter(Boolean).join(' · ') || '—')),
       h('div', { class: 'row-actions' },
-        h('button', { class: 'btn icon ghost', title: 'Yuqoriga', disabled: i === 0, onclick: () => move(i, -1) }, '↑'),
-        h('button', { class: 'btn icon ghost', title: 'Pastga', disabled: i === branches.length - 1, onclick: () => move(i, 1) }, '↓'),
-        h('button', { class: 'btn sm', onclick: async () => {
+        h('button', { class: 'btn icon ghost', title: 'Yuqoriga', disabled: i === 0, onclick: () => move(i, -1) }, icon('arrowUp', 16)),
+        h('button', { class: 'btn icon ghost', title: 'Pastga', disabled: i === branches.length - 1, onclick: () => move(i, 1) }, icon('arrowDown', 16)),
+        h('button', { class: 'btn icon ghost', title: 'Tahrirlash', onclick: async () => {
           const v = await branchDialog(b);
           if (!v?.name) return;
           await DB.updateBranch(b.id, { name: v.name, manager: v.manager || null, phone: v.phone || null }); route();
-        } }, 'Tahrirlash'),
-        h('button', { class: 'btn sm danger-ghost', onclick: async () => {
+        } }, icon('pencil', 16)),
+        h('button', { class: 'btn icon danger-ghost', title: "O'chirish", onclick: async () => {
           if (!await confirmDialog(`"${b.name}" filiali va uning barcha hisobotlari o'chiriladi.`)) return;
           await DB.deleteBranch(b.id); toast("O'chirildi"); route();
-        } }, "O'chirish")))))
+        } }, icon('trash', 16))))))
       : h('p', { class: 'muted empty-line' }, "Hali filial yo'q."));
 }
 
@@ -212,14 +229,14 @@ function settingsCenter(center, centers) {
     h('section', { class: 'panel' },
       h('div', { class: 'panel-head' },
         h('h2', {}, 'Markazlar', h('span', { class: 'count' }, centers.length)),
-        h('button', { class: 'btn', onclick: newCenter }, '+ Yangi markaz')),
+        h('button', { class: 'btn', onclick: newCenter }, icon('plus', 16), 'Yangi markaz')),
       h('ul', { class: 'rows' }, centers.map(c => h('li', { class: 'row-item' },
         h('div', { class: 'row-main' },
           h('span', { class: 'row-title' }, c.name),
           h('span', { class: 'muted small' }, `${c.branch_count} ta filial`)),
         h('div', { class: 'row-actions' },
           c.id === center.id
-            ? h('span', { class: 'badge' }, 'Joriy')
+            ? h('span', { class: 'badge' }, icon('check', 13), 'Joriy')
             : h('button', { class: 'btn sm', onclick: () => { LS.set('hisobot_center', c.id); location.hash = '#/'; } }, "O'tish")))))),
     h('section', { class: 'panel danger-zone' },
       h('div', { class: 'panel-head' },
@@ -230,7 +247,7 @@ function settingsCenter(center, centers) {
           await DB.deleteCenter(center.id);
           LS.del('hisobot_center');
           toast("O'chirildi"); location.hash = '#/';
-        } }, "O'chirish"))));
+        } }, icon('trash', 16), "O'chirish"))));
 }
 
 function settingsColumns(center) {
@@ -253,8 +270,8 @@ function settingsColumns(center) {
         ...cols.filter(o => o.key !== c.key && o.type !== 'text').map(o => [o.key, `% ← ${o.label}`])];
       list.append(h('div', { class: 'col-row' + (c.hidden ? ' is-hidden' : '') },
         h('div', { class: 'col-order' },
-          h('button', { class: 'btn icon ghost sm', disabled: i === 0, onclick: () => { [cols[i - 1], cols[i]] = [cols[i], cols[i - 1]]; draw(); } }, '↑'),
-          h('button', { class: 'btn icon ghost sm', disabled: i === cols.length - 1, onclick: () => { [cols[i + 1], cols[i]] = [cols[i], cols[i + 1]]; draw(); } }, '↓')),
+          h('button', { class: 'btn icon ghost sm', disabled: i === 0, onclick: () => { [cols[i - 1], cols[i]] = [cols[i], cols[i - 1]]; draw(); } }, icon('arrowUp', 14)),
+          h('button', { class: 'btn icon ghost sm', disabled: i === cols.length - 1, onclick: () => { [cols[i + 1], cols[i]] = [cols[i], cols[i + 1]]; draw(); } }, icon('arrowDown', 14))),
         h('label', { class: 'field grow' }, h('span', {}, 'Nomi ', h('code', {}, c.key)),
           h('input', { class: 'inp', value: c.label, oninput: e => (c.label = e.target.value) })),
         h('label', { class: 'field' }, h('span', {}, 'Turi'),
@@ -276,7 +293,7 @@ function settingsColumns(center) {
           h('button', { class: 'btn icon ghost sm', title: "O'chirish", onclick: async () => {
             if (!await confirmDialog(`"${c.label}" ustuni o'chiriladi. Kiritilgan ma'lumotlar bazada qoladi, lekin ko'rinmaydi.`)) return;
             cols.splice(i, 1); draw();
-          } }, '✕'))));
+          } }, icon('trash', 15)))));
     });
   }
   draw();
@@ -290,11 +307,11 @@ function settingsColumns(center) {
           if (!v?.label) return;
           cols.push({ key: slugKey(v.label, cols.map(c => c.key)), label: v.label, type: 'number' });
           draw();
-        } }, '+ Ustun'),
+        } }, icon('plus', 16), 'Ustun'),
         h('button', { class: 'btn', onclick: async () => {
           if (!await confirmDialog('Ustunlar standart holatga qaytariladi.', { okText: 'Qaytarish', danger: false })) return;
           cols = JSON.parse(JSON.stringify(DEFAULT_COLUMNS)); draw();
-        } }, 'Standart'),
+        } }, icon('rotate', 16), 'Standart'),
         h('button', { class: 'btn primary', onclick: async () => {
           if (cols.some(c => !c.label.trim())) return toast("Ustun nomi bo'sh bo'lmasin", 'err');
           await DB.updateCenter(id, { columns: cols });

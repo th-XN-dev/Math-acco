@@ -49,6 +49,16 @@ function fmtDate(iso) {
   const [y, m, d] = iso.split('-');
   return `${d}.${m}.${y}`;
 }
+// Oy kunlarini haftalarga bo'lish (dushanba — yakshanba, oy chegarasida kesiladi)
+function monthWeeks(days) {
+  const weeks = [];
+  let cur = null;
+  for (const d of days) {
+    if (!cur || weekday(d) === 1) { cur = { days: [] }; weeks.push(cur); }
+    cur.days.push(d);
+  }
+  return weeks;
+}
 const monthLabel = m => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
 const isMonth = m => /^\d{4}-(0[1-9]|1[0-2])$/.test(m || '');
 
@@ -71,7 +81,8 @@ const fmtPct = r => (r == null ? '–' : (r * 100).toFixed(2).replace('.', ',') 
 function toast(msg, kind = '') {
   let box = document.getElementById('toasts');
   if (!box) { box = h('div', { id: 'toasts' }); document.body.append(box); }
-  const t = h('div', { class: 'toast ' + kind }, msg);
+  const t = h('div', { class: 'toast ' + kind },
+    kind === 'ok' ? icon('check', 16) : kind === 'err' ? icon('alert', 16) : null, h('span', {}, msg));
   box.append(t);
   setTimeout(() => t.classList.add('hide'), 2600);
   setTimeout(() => t.remove(), 3000);
